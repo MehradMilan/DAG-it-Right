@@ -1,6 +1,7 @@
 import networkx as nx
+import os
 
-OUTPUT_DIR = "data/output/"
+OUTPUT_DIR = os.getcwd()
 
 def export_graph(dag, filename):
     nx.write_gml(dag, OUTPUT_DIR + filename)
