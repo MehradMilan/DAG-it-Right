@@ -1,71 +1,108 @@
-from collections import defaultdict
-import networkx as nx
+import matplotlib.pyplot as plt
 
-def compute_upward_ranks(dag):
-    ranks = {}
 
-    def rank(node):
-        if node in ranks:
-            return ranks[node]
-        if dag.out_degree(node) == 0:  # Leaf node
-            ranks[node] = dag.nodes[node]['weight']
+# HEFT Scheduling Implementation
+def calculate_bottom_level(dag):
+    """Calculate the bottom-level value for each task in the DAG."""
+    bottom_level = {}
+
+    def compute_bottom_level(node):
+        if node in bottom_level:
+            return bottom_level[node]
+        successors = list(dag.successors(node))  # Convert to list to avoid re-iteration
+        if not successors:  # No successors
+            bottom_level[node] = dag.nodes[node]['weight']
         else:
-            ranks[node] = dag.nodes[node]['weight'] + max(
-                dag.edges[node, succ]['weight'] + rank(succ)
-                for succ in dag.successors(node)
+            bottom_level[node] = dag.nodes[node]['weight'] + max(
+                compute_bottom_level(child) + dag.edges[node, child]['weight']
+                for child in successors
             )
-        return ranks[node]
+        return bottom_level[node]
 
-    for node in nx.topological_sort(dag):
-        rank(node)
+    for node in dag.nodes:
+        compute_bottom_level(node)
 
-    return ranks
+    return bottom_level
 
-def heft_schedule(dag, num_processors):
-    upward_ranks = compute_upward_ranks(dag)
-    tasks_sorted = sorted(upward_ranks, key=upward_ranks.get, reverse=True)
 
-    schedule = defaultdict(list)  # Processor -> List of (task, start_time, end_time)
-    task_start_end = {}  # Task -> (start_time, end_time)
-    processor_avail = [0] * num_processors  # Track availability of each processor
+def heft_schedule(dag, resources):
+    """
+    Implement the HEFT algorithm for DAG scheduling.
 
-    for task in tasks_sorted:
-        best_processor = None
-        earliest_finish_time = float("inf")
-        best_start_time = None
+    Parameters:
+    - dag: Annotated DAG with 'weight' attributes for nodes (computation costs)
+           and 'weight' attributes for edges (communication costs).
+    - resources: List of resources with 'speed' attributes.
 
-        for proc in range(num_processors):
-            ready_time = processor_avail[proc]
-            start_time = ready_time
+    Returns:
+    - schedule: A dictionary mapping each resource to a list of scheduled tasks
+                with their start and end times.
+    """
+    print(resources)
+    # Step 1: Calculate bottom-level priority for each task
+    bottom_level = calculate_bottom_level(dag)
+    tasks = sorted(dag.nodes, key=lambda node: bottom_level[node], reverse=True)
 
-            # Check dependency constraints
+    # Step 2: Initialize schedule and resource availability
+    schedule = {resource: [] for resource in range(len(resources))}
+    task_allocation = {}
+    resource_availability = [0] * len(resources)  # Tracks when each resource becomes free
+    task_start_times = {}
+
+    # Step 3: Schedule tasks
+    for task in tasks:
+        best_time = float('inf')
+        best_resource = None
+
+        for resource_id, resource in enumerate(resources):
+            # Calculate earliest start time for the current resource
+            est = resource_availability[resource_id]  # Resource is free at this time
             for pred in dag.predecessors(task):
-                if pred not in task_start_end:
-                    raise ValueError(f"Predecessor {pred} of task {task} has no scheduled end time.")
-                pred_end = task_start_end[pred][1]
-                comm_time = dag.edges[pred, task]['weight'] if (pred, task) in dag.edges else 0
-                start_time = max(start_time, pred_end + comm_time)
+                if pred in task_allocation:
+                    pred_end_time = task_start_times[pred][1]
+                    if task_allocation[pred] != resource_id:
+                        pred_end_time += dag.edges[pred, task]['weight']  # Communication cost
+                    est = max(est, pred_end_time)
 
-            finish_time = start_time + dag.nodes[task]['weight']
+            # Calculate execution time
+            exec_time = dag.nodes[task]['weight'] / resource['speed']
+            eft = est + exec_time
 
-            if finish_time < earliest_finish_time:
-                earliest_finish_time = finish_time
-                best_processor = proc
-                best_start_time = start_time
+            # Check if this resource gives the best EFT
+            if eft < best_time:
+                best_time = eft
+                best_resource = resource_id
 
-        if best_processor is None:
-            raise ValueError(f"Task {task} could not be assigned to any processor.")
+        # Assign task to the best resource
+        task_allocation[task] = best_resource
+        task_start_times[task] = (best_time - dag.nodes[task]['weight'] / resources[best_resource]['speed'], best_time)
+        schedule[best_resource].append((task, task_start_times[task][0], task_start_times[task][1]))
 
-        # Assign task to best processor
-        schedule[best_processor].append((task, best_start_time, earliest_finish_time))
-        task_start_end[task] = (best_start_time, earliest_finish_time)
-        processor_avail[best_processor] = earliest_finish_time
+        # Update resource availability
+        resource_availability[best_resource] = best_time
 
-    return dict(schedule)
+        # Debug output for allocation
+        print(f"Task {task} assigned to Resource {best_resource} at time {task_start_times[task][0]}-{task_start_times[task][1]}")
+
+    return schedule
 
 
-def print_schedule(schedule):
-    for proc, tasks in schedule.items():
-        print(f"Processor {proc}:")
+def visualize_schedule(schedule):
+    """Visualize the HEFT schedule as a Gantt chart."""
+    print(schedule)
+    _, ax = plt.subplots(figsize=(10, 6))
+    colors = ['red', 'blue', 'green', 'orange', 'purple']
+
+    for resource_id, tasks in schedule.items():
         for task, start, end in tasks:
-            print(f"  Task {task}: Start at {start}, End at {end}")
+            ax.barh(resource_id, end - start, left=start, color=colors[resource_id % len(colors)], edgecolor='black')
+            ax.text((start + end) / 2, resource_id, f"T{task}", color='white', ha='center', va='center', fontsize=10)
+
+    ax.set_yticks(range(len(schedule)))
+    ax.set_yticklabels([f"Resource {i}" for i in range(len(schedule))])
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Resources")
+    ax.set_title("HEFT Scheduling")
+    ax.grid(True, linestyle='--', alpha=0.5)
+    plt.show()
+
