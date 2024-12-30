@@ -172,7 +172,8 @@ python cli.py generate --graph-type <model> --nodes <num_nodes>
    - Creates a graph with 50 nodes where each new node connects to 5 existing nodes.
 
 ```bash
-python cli.py generate --graph-type barabasi_albert --nodes 50 --params '{"m": 5}' --output barabasi_albert_dag.gml
+python cli.py generate --graph-type barabasi_albert --nodes 50 
+--params '{"m": 5}' --output barabasi_albert_dag.gml
 ```
 
 + **Generate a Watts-Strogatz Graph**:
@@ -180,7 +181,8 @@ python cli.py generate --graph-type barabasi_albert --nodes 50 --params '{"m": 5
    - Creates a graph with 100 nodes, where each node connects to 6 nearest neighbors, and edges are rewired with a probability of 0.3.
 
 ```bash
-python cli.py generate --graph-type watts_strogatz --nodes 100 --params '{"k": 6, "p": 0.3}' --output watts_strogatz_dag.gml --visualize
+python cli.py generate --graph-type watts_strogatz --nodes 100 
+--params '{"k": 6, "p": 0.3}' --output watts_strogatz_dag.gml --visualize
 ```
 
 + **Generate and Benchmark an Erdős-Rényi Graph**:
@@ -188,7 +190,8 @@ python cli.py generate --graph-type watts_strogatz --nodes 100 --params '{"k": 6
    - Creates a graph with 75 nodes where each edge is created with a probability of 0.2, then benchmarks it with scheduling algorithms.
 
 ```bash
-python cli.py generate --graph-type erdos_renyi --nodes 75 --params '{"p": 0.2}' --output erdos_renyi_dag.gml --benchmark --num-proc 4
+python cli.py generate --graph-type erdos_renyi --nodes 75 
+--params '{"p": 0.2}' --output erdos_renyi_dag.gml --benchmark --num-proc 4
 ```
 
 ### 2. Download and Process Real-World Datasets
@@ -224,7 +227,8 @@ python cli/cli.py download --type internet_networks
 2. Process a Single Dataset:
 
 ```bash
-python cli/cli.py process --input <file_path> --format <file_format> --output <output_file>
+python cli/cli.py process --input <file_path> --format <file_format> 
+--output <output_file>
 ```
 
 **Example**:
@@ -285,13 +289,55 @@ python cli/cli.py batch-benchmark
 
 ## Results
 
-## Outputs
+## Results
 
-+ **Generated Graphs**: Saved in GML format in the specified `--output` file.
+This section provides a comprehensive analysis of the benchmarks performed on DAG scheduling algorithms across different network models and parameter configurations. The plots illustrate the behavior of two scheduling algorithms (HEFT and EDF) under various scenarios, focusing on makespan and resource utilization metrics.
 
-+ **Processed DAGs**: Stored in the `data/output/graphs` directory for batch processing.
+### HEFT vs. EDF Performance
 
-+ **Visualization**: Graphs are displayed in a matplotlib window if `--visualize` is used.
+Across all plots, HEFT consistently outperforms EDF in both makespan and resource utilization. The difference is particularly noticeable in resource utilization, where HEFT achieves higher and more stable values, demonstrating its superior ability to balance workload across processors. The makespan for HEFT is also consistently lower than EDF, highlighting its efficiency in task scheduling, even as the network size grows.
+
+<img src="results/plots/barbasi_albert.png">
+
+![Barabási-Albert](results/plots/barbasi_albert.png)
+
+<img src="results/plots/watts_strogatz.png">
+
+![Watts-Strogatz](results/plots/watts_strogatz.png)
+
+<img src="results/plots/erdos_renyi.png">
+
+![Erdos-Renyi](results/plots/erdos_renyi.png)
+
+### Average Behavior of Network Models
+
+In the averaged plots, Barabási-Albert networks generally exhibit the best performance in terms of both makespan and resource utilization. The scale-free nature of Barabási-Albert graphs likely contributes to this efficiency, as hub nodes simplify task dependencies and reduce scheduling complexity. Erdos-Renyi networks show slightly inferior performance in terms of makespan compared to Barabási-Albert but maintain comparable utilization for certain parameter configurations. Watts-Strogatz networks, while having high clustering, pose challenges in interpretation due to their mixed performance, especially in resource utilization.
+
+<img src="results/plots/all_average.png">
+
+![All Graphs Average](results/plots/all_average.png)
+
+### Erdos-Renyi Observations
+
+The Erdos-Renyi plots highlight the impact of the edge probability (`p`) on scheduling performance. When `p=0.1`, resource utilization peaks rapidly, suggesting that sparse graphs can effectively utilize resources under both scheduling algorithms. However, at `p=1` (complete graph), the utilization drops to zero, and both algorithms exhibit identical performance. This uniformity likely occurs because all tasks are interdependent in a complete graph, leaving no room for optimization by either algorithm.
+
+
+
+### Detailed Analysis of Barabási-Albert and Watts-Strogatz
+
+For Barabási-Albert graphs, the parameter `m` significantly influences the results. Larger values of `m` create denser networks, which increase makespan but slightly improve utilization due to higher connectivity among tasks. In contrast, Watts-Strogatz networks display more variability in both makespan and utilization, likely due to the combination of high clustering and randomness introduced by the rewiring probability `p`. The interpretation of Watts-Strogatz performance requires careful consideration of the balance between clustering and path length.
+
+### General Trends and Insights
+
+In all network models, makespan grows almost linearly with the graph size, reflecting the increased computational demand as more tasks are added. Resource utilization, however, demonstrates a non-linear pattern, heavily influenced by the network topology and parameters. Sparse networks like Erdos-Renyi with `p=0.1` and Barabási-Albert with lower `m` consistently perform better across both metrics, indicating their suitability for task scheduling scenarios. Watts-Strogatz networks, while realistic for certain applications, require careful parameter tuning to achieve optimal performance.
+
+<img src="results/plots/all.png">
+
+![All Graphs Different Params](results/plots/all.png)
+
+### Conclusion
+
+These results provide valuable insights into the interplay between network topology and DAG scheduling algorithm performance. HEFT emerges as the superior algorithm across all scenarios, particularly in resource utilization. Among the network models, Barabási-Albert demonstrates the most favorable characteristics for task scheduling, followed by Erdos-Renyi with low edge probabilities. This analysis highlights the importance of selecting appropriate network models and parameters when benchmarking scheduling algorithms.
 
 ## Dataset Sources
 
