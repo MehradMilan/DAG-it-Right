@@ -5,9 +5,11 @@ OUTPUT_DIR = os.getcwd() + '/data/output/graphs/'
 
 def export_graph(dag, filename, is_generated=True):
     if is_generated:
-        nx.write_gml(dag, OUTPUT_DIR + 'generated/' + filename)
+        save_address =  OUTPUT_DIR + 'generated/'
     else:
-        nx.write_gml(dag, OUTPUT_DIR + 'dataset/' + filename)
+        save_address =  OUTPUT_DIR + 'dataset/'
+    os.makedirs(os.path.dirname(save_address), exist_ok=True)
+    nx.write_gml(dag, save_address + filename)
     print(f"Graph saved to {filename}")
 
 def load_graph(file_path, file_format="gml"):
