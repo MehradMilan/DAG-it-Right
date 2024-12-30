@@ -116,7 +116,7 @@ def visualize_schedule(schedule):
     ax.set_yticklabels([f"Resource {i}" for i in range(len(schedule))])
     ax.set_xlabel("Time")
     ax.set_ylabel("Resources")
-    ax.set_title("HEFT Scheduling")
+    ax.set_title("Scheduling Result")
     ax.grid(True, linestyle='--', alpha=0.5)
     plt.show()
 
