@@ -1,0 +1,31 @@
+{
+    "internet_networks": [
+      {
+        "name": "Gnutella Peer-to-Peer 04",
+        "url": "https://snap.stanford.edu/data/p2p-Gnutella04.txt.gz",
+        "format": "edgelist"
+      },
+      {
+        "name": "Gnutella Peer-to-Peer 08",
+        "url": "https://snap.stanford.edu/data/p2p-Gnutella08.txt.gz",
+        "format": "edgelist"
+      },
+      {
+        "name": "Gnutella Peer-to-Peer 30",
+        "url": "https://snap.stanford.edu/data/p2p-Gnutella30.txt.gz",
+        "format": "edgelist"
+      }
+    ],
+    "autonomous_systems": [
+      {
+        "name": "AS-733",
+        "url": "https://snap.stanford.edu/data/as20000102.txt.gz",
+        "format": "edgelist"
+      },
+      {
+        "name": "Oregon1_010526",
+        "url": "https://snap.stanford.edu/data/oregon1_010526.txt.gz",
+        "format": "edgelist"
+      }
+    ]
+  }  

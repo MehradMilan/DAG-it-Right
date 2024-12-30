@@ -1,4 +1,7 @@
 venv*
 *__pycache__
+data/output/graphs/dataset/*.gml
+data/output/graphs/generated/*.gml
+data/input/dataset/*.txt
 data/output/*
 *gml
