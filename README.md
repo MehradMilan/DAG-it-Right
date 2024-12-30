@@ -59,59 +59,136 @@ pip install -r requirements.txt
 
 The CLI supports several commands. Below is a detailed explanation of each command:
 
-### 1. Generate Synthetic Graphs
+### **1. Generate Synthetic Graphs**
 
 You can generate synthetic graphs with arbitrary sizes and different models of complex networks.
 
-**Supported Models**:
+**Supported Models and Parameters**:
 
-1. **Barabási-Albert (Scale-Free Model)**:
+1. **Barabási-Albert (Scale-Free Model)**
 
-   + Generates a scale-free network where some nodes have significantly higher connectivity.
+   + **Description**:
+   
+     - This model generates a scale-free network where some nodes have significantly higher connectivity than others.
+   
+     - It simulates real-world networks like the internet or social networks, where "hub" nodes are prevalent.
 
-   + Use this model to simulate social networks or web graphs.
+   + **Parameters**:
+    
+     - `m`: The number of edges added to the network for each new node.
+    
+       - Example values: `m = 3` (each new node connects to 3 existing nodes).
+    
+       - Larger values create denser networks with more connections.
+    
+       - Uses `m` to control the number of edges per new node, leading to hub-like structures.
 
-2. **Watts-Strogatz (Small-World Model)**:
+   + **How It Works**:
+    
+     - Starts with a small, fully connected network of `m` nodes.
+    
+     - New nodes are added one at a time and connected to `m` existing nodes with probabilities proportional to their current degree (number of connections).
 
-    + Produces graphs with high clustering and short path lengths.
+2. **Watts-Strogatz (Small-World Model)**
 
-    + Suitable for modeling real-world networks like electrical grids or neural networks.
+   + **Description**:
+    
+     - This model creates graphs with high clustering (nodes form tightly-knit groups) and short path lengths.
+     
+     - It models networks like neural connections or social relationships in communities.
 
-3. **Erdős-Rényi (Random Model)**:
+   + **Parameters**:
 
-    + Generates a random graph with a uniform probability of edge creation.
+     - `k`: Each node connects to `k` nearest neighbors in a ring topology.
 
-    + Useful for analyzing random processes and network algorithms.
+       - Example values: `k = 4` (each node connects to its 4 nearest neighbors).
 
-**Command**:
+       - Larger values create graphs with higher density.
+
+     - `p`: The probability of rewiring edges to introduce randomness.
+
+       - Example values: `p = 0.1, 0.3, 0.5`.
+
+       - Small `p` values result in highly structured graphs, while larger `p` values make the graph more random.
+       
+       - Uses `k` and `p` to balance clustering and randomness.
+
+   + **How It Works**:
+     
+     - Starts with a regular ring lattice where each node connects to `k` neighbors.
+     
+     - Randomly rewires each edge with a probability `p` to introduce shortcuts, creating the "small-world" effect.
+
+3. **Erdős-Rényi (Random Model)**
+
+   + **Description**:
+     
+     - This model generates random graphs where edges are created independently with a fixed probability.
+     
+     - It is useful for studying random processes and testing network algorithms.
+
+   + **Parameters**:
+     
+     - `p`: The probability of edge creation between any two nodes.
+     
+       - Example values: `p = 0.1, 0.5, 0.9`.
+     
+       - Small `p` values produce sparse graphs, while `p = 1.0` creates a complete graph.
+     
+       - Uses `p` to control the edge density, ranging from sparse to complete graphs.
+
+   + **How It Works**:
+     
+     - Starts with a set of `n` nodes.
+     
+     - For each pair of nodes, adds an edge with probability `p`.
+
+**Command**
 
 ```bash
-python cli/cli.py generate --graph-type <model> --nodes <num_nodes> 
---param <model_param> --output <output_file> 
+python cli.py generate --graph-type <model> --nodes <num_nodes> 
+--params <model_params> --output <output_file> 
 [--visualize] [--benchmark] [--num-proc <num_processors>]
 ```
 
-**Examples**:
+- **`--graph-type`**: Specifies the type of graph to generate (`barabasi_albert`, `watts_strogatz`, or `erdos_renyi`).
 
-+ Generate a Barabási-Albert graph with 50 nodes:
+- **`--nodes`**: Number of nodes in the graph.
+
+- **`--params`**: Model parameters in JSON format (e.g., `{"m": 3}` for Barabási-Albert).
+
+- **`--output`**: The file path to save the generated graph in GML format.
+
+- **`--visualize`**: Option to visualize the generated graph.
+
+- **`--benchmark`**: Option to benchmark the graph with scheduling algorithms.
+
+- **`--num-proc`**: Number of processors to use for benchmarking (default is 3).
+
+**Examples**
+
++ **Generate a Barabási-Albert Graph**:
+
+   - Creates a graph with 50 nodes where each new node connects to 5 existing nodes.
 
 ```bash
-python cli/cli.py generate --graph-type barabasi_albert --nodes 50 --param 3 
---output barabasi_albert_dag.gml
+python cli.py generate --graph-type barabasi_albert --nodes 50 --params '{"m": 5}' --output barabasi_albert_dag.gml
 ```
 
-+ Generate a Watts-Strogatz graph and visualize it:
++ **Generate a Watts-Strogatz Graph**:
+
+   - Creates a graph with 100 nodes, where each node connects to 6 nearest neighbors, and edges are rewired with a probability of 0.3.
 
 ```bash
-python cli/cli.py generate --graph-type watts_strogatz --nodes 100 --param 5 
---output small_world_dag.gml --visualize
+python cli.py generate --graph-type watts_strogatz --nodes 100 --params '{"k": 6, "p": 0.3}' --output watts_strogatz_dag.gml --visualize
 ```
 
-+ Generate and benchmark an Erdős-Rényi graph:
++ **Generate and Benchmark an Erdős-Rényi Graph**:
+
+   - Creates a graph with 75 nodes where each edge is created with a probability of 0.2, then benchmarks it with scheduling algorithms.
 
 ```bash
-python cli/cli.py generate --graph-type erdos_renyi --nodes 75 --param 0.1 
---output random_dag.gml --benchmark --num-proc 4
+python cli.py generate --graph-type erdos_renyi --nodes 75 --params '{"p": 0.2}' --output erdos_renyi_dag.gml --benchmark --num-proc 4
 ```
 
 ### 2. Download and Process Real-World Datasets
@@ -173,6 +250,8 @@ python cli/cli.py batch-process --type internet_networks
 
 You can benchmark scheduling algorithms (like HEFT) on DAGs and visualize the results.
 
+1. Benchmark a Single Network
+
 **Command**:
 
 ```bash
@@ -192,8 +271,19 @@ python cli/cli.py benchmark --input barabasi_albert_dag.gml --num-proc 3
 
 ```bash
 python cli/cli.py benchmark --input p2p_gnutella_dag.gml --num-proc 4 --visualize
-
 ```
+
+2. Batch-Benchmark:
+
+Some pre-defined tests run on different models of complex networks with different scheduling algorithms and visualize the results.
+
+**Command**:
+
+```bash
+python cli/cli.py batch-benchmark
+```
+
+## Results
 
 ## Outputs
 

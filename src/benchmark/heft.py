@@ -1,16 +1,13 @@
 import matplotlib.pyplot as plt
 
-
-# HEFT Scheduling Implementation
 def calculate_bottom_level(dag):
-    """Calculate the bottom-level value for each task in the DAG."""
     bottom_level = {}
 
     def compute_bottom_level(node):
         if node in bottom_level:
             return bottom_level[node]
-        successors = list(dag.successors(node))  # Convert to list to avoid re-iteration
-        if not successors:  # No successors
+        successors = list(dag.successors(node))
+        if not successors:
             bottom_level[node] = dag.nodes[node]['weight']
         else:
             bottom_level[node] = dag.nodes[node]['weight'] + max(
@@ -26,75 +23,51 @@ def calculate_bottom_level(dag):
 
 
 def heft_schedule(dag, resources):
-    """
-    Implement the HEFT algorithm for DAG scheduling.
-
-    Parameters:
-    - dag: Annotated DAG with 'weight' attributes for nodes (computation costs)
-           and 'weight' attributes for edges (communication costs).
-    - resources: List of resources with 'speed' attributes.
-
-    Returns:
-    - schedule: A dictionary mapping each resource to a list of scheduled tasks
-                with their start and end times.
-    """
     print(resources)
-    # Step 1: Calculate bottom-level priority for each task
     bottom_level = calculate_bottom_level(dag)
     tasks = sorted(dag.nodes, key=lambda node: bottom_level[node], reverse=True)
 
-    # Step 2: Initialize schedule and resource availability
     schedule = {resource: [] for resource in range(len(resources))}
     task_allocation = {}
-    resource_availability = [0] * len(resources)  # Tracks when each resource becomes free
+    resource_availability = [0] * len(resources)
     task_start_times = {}
 
-    # Step 3: Schedule tasks
     for task in tasks:
         best_time = float('inf')
         best_resource = None
 
         for resource_id, resource in enumerate(resources):
-            # Calculate earliest start time for the current resource
-            est = resource_availability[resource_id]  # Resource is free at this time
+            est = resource_availability[resource_id]
             for pred in dag.predecessors(task):
                 if pred in task_allocation:
                     pred_end_time = task_start_times[pred][1]
                     if task_allocation[pred] != resource_id:
-                        pred_end_time += dag.edges[pred, task]['weight']  # Communication cost
+                        pred_end_time += dag.edges[pred, task]['weight']
                     est = max(est, pred_end_time)
 
-            # Calculate execution time
             exec_time = dag.nodes[task]['weight'] / resource['speed']
             eft = est + exec_time
 
-            # Check if this resource gives the best EFT
             if eft < best_time:
                 best_time = eft
                 best_resource = resource_id
 
-        # Assign task to the best resource
         task_allocation[task] = best_resource
         task_start_times[task] = (best_time - dag.nodes[task]['weight'] / resources[best_resource]['speed'], best_time)
         schedule[best_resource].append((task, task_start_times[task][0], task_start_times[task][1]))
 
-        # Update resource availability
         resource_availability[best_resource] = best_time
 
-        # Debug output for allocation
         print(f"Task {task} assigned to Resource {best_resource} at time {task_start_times[task][0]}-{task_start_times[task][1]}")
 
-    # Step 4: Calculate makespan
     makespan = max(resource_availability)
     print(f"Makespan: {makespan}")
 
-    # Step 5: Calculate resource utilization
     utilization = {}
     for resource_id, tasks in schedule.items():
         active_time = sum(end - start for _, start, end in tasks)
         utilization[resource_id] = active_time / makespan if makespan > 0 else 0.0
 
-    # Output resource utilization
     for resource_id, util in utilization.items():
         print(f"Resource {resource_id} utilization: {util:.2%}")
 
@@ -102,7 +75,6 @@ def heft_schedule(dag, resources):
 
 
 def visualize_schedule(schedule):
-    """Visualize the HEFT schedule as a Gantt chart."""
     print(schedule)
     _, ax = plt.subplots(figsize=(10, 6))
     colors = ['red', 'blue', 'green', 'orange', 'purple']

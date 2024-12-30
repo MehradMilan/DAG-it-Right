@@ -2,6 +2,7 @@ import sys
 import os
 import random
 import argparse
+import json
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -12,7 +13,7 @@ from src.utils.graph_visualizer import visualize_graph
 from src.utils.downloader import read_urls, download_dataset, download_all
 from src.benchmark.heft import heft_schedule, visualize_schedule
 from src.benchmark.edf import edf_schedule, visualize_edf
-from src.benchmark.main import plot_results, benchmark_algorithms
+from src.benchmark.main import benchmark_algorithms_with_params, plot_comparison_per_network, plot_comparison_per_algorithm, plot_average_per_network
 
 
 
@@ -26,7 +27,8 @@ def main():
                              choices=["barabasi_albert", "watts_strogatz", "erdos_renyi"],
                              help="Type of graph to generate.")
     gen_parser.add_argument("--nodes", type=int, default=100, help="Number of nodes.")
-    gen_parser.add_argument("--param", type=int, default=3, help="Graph model parameter.")
+    gen_parser.add_argument("--params", type=str, default='{"m": 3}', 
+                         help="Graph model parameters as a JSON string (e.g., '{\"m\": 3, \"p\": 0.1}')")
     gen_parser.add_argument("--output", type=str, default="output_dag.gml", help="Output filename.")
     gen_parser.add_argument("--visualize", action="store_true", help="Visualize the generated DAG.")
     gen_parser.add_argument("--benchmark", action="store_true", help="Print benchmark result.")
@@ -64,32 +66,60 @@ def main():
         visualize_schedule(edf_schedule(annotated_dag, resources)[0])
     
     if args.command == "batch-benchmark":
-        # Define graph sizes and resources
-        graph_sizes = list(range(100, 1100, 100))
-        resources = [{'speed': 1.0}, {'speed': 1.5}, {'speed': 0.5}]
-
-        # Define algorithms
-        algorithms = {
-            "EDF": edf_schedule,    # Replace with your EDF function
-            "HEFT": heft_schedule   # Replace with your HEFT function
+        param_sets = {
+            "barabasi_albert": [{"m": 3}, {"m": 5}, {"m": 8}],
+            "watts_strogatz": [{"k": 4, "p": 0.1}, {"k": 6, "p": 0.3}, {"k": 8, "p": 0.5}],
+            "erdos_renyi": [{"p": 0.1}, {"p": 0.5}, {"p": 0.9}, {"p": 1.0}]
         }
 
-        # Run benchmarks
-        for gt in ["barabasi_albert", "watts_strogatz"]:
-            results = benchmark_algorithms(gt, graph_sizes, resources, algorithms)
+        graph_sizes = {
+            "barabasi_albert": list(range(100, 1100, 100)),
+            "watts_strogatz": list(range(10, 200, 20)),
+            "erdos_renyi": list(range(10, 200, 20))
+        }
 
-            # Plot results
-            plot_results(gt, graph_sizes, results)
-        
-        graph_sizes = list(range(10, 110, 10))
-        results = benchmark_algorithms("erdos_renyi", graph_sizes, resources, algorithms)
-        plot_results("erdos_renyi", graph_sizes, results)
+        if args.command == "batch-benchmark":
+            resources = [{'speed': 1.0}, {'speed': 1.5}, {'speed': 0.5}]
 
-    
+            algorithms = {
+                "EDF": edf_schedule,
+                "HEFT": heft_schedule
+            }
+            
+            for graph_type, params in param_sets.items():
+                print(f"Running benchmarks for {graph_type}...")
+                sizes = graph_sizes[graph_type]
+                results = benchmark_algorithms_with_params(graph_type, sizes, params, resources, algorithms)
+                plot_comparison_per_network(graph_type, sizes, results, params)
+
+            all_results = {}
+            graph_sizes = {
+            "barabasi_albert": list(range(10, 200, 20)),
+            "watts_strogatz": list(range(10, 200, 20)),
+            "erdos_renyi": list(range(10, 200, 20))
+            }
+            for graph_type, params in param_sets.items():
+                print(f"Running benchmarks for {graph_type}...")
+                sizes = graph_sizes[graph_type]
+                results = benchmark_algorithms_with_params(graph_type, sizes, params, resources, algorithms)
+                all_results[graph_type] = results
+
+            print("Plotting comparison across algorithms...")
+            plot_comparison_per_algorithm(graph_sizes, all_results, param_sets, algorithms, param_sets.keys())
+
+            print("Plotting averaged results across all parameters...")
+            plot_average_per_network(graph_sizes, all_results, list(algorithms.keys()), param_sets.keys())
+
 
     if args.command == "generate":
         try:
-            G = generate_synthetic_graph(graph_type=args.graph_type, n=args.nodes, param=args.param)
+            try:
+                params = json.loads(args.params)
+            except json.JSONDecodeError:
+                print("Error: Invalid JSON format for --params.")
+                exit(1)
+
+            G = generate_synthetic_graph(graph_type=args.graph_type, n=args.nodes, params=params)
             dag = convert_to_dag(G)
             annotated_dag = annotate_graph(dag)
 
@@ -102,7 +132,7 @@ def main():
                 resources = [{'speed': random.choice([0.5, 1.0, 1.5, 2.0, 2.5])} for _ in range(args.num_proc)]
                 visualize_schedule(heft_schedule(annotated_dag, resources)[0])
                 visualize_schedule(edf_schedule(annotated_dag, resources)[0])
-            
+
         except ValueError as e:
             print(f"Error: {e}")
             exit(1)
