@@ -10,6 +10,8 @@ from src.generation.graph_annotator import annotate_graph
 from src.utils.graph_io import export_graph
 from src.utils.graph_visualizer import visualize_graph
 from src.benchmark.heft import heft_schedule, visualize_schedule
+from src.benchmark.edf import edf_schedule, visualize_edf
+
 
 def main():
     parser = argparse.ArgumentParser(description="DAG Scheduling Benchmarks CLI")
@@ -36,8 +38,10 @@ def main():
             visualize_graph(annotated_dag, title="Generated DAG")
 
         if args.benchmark:
-            visualize_schedule(heft_schedule(annotated_dag,
-                                             [{'speed': random.choice([0.5, 1.0, 1.5, 2.0, 2.5])} for _ in range(args.num_proc)]))
+            resources = [{'speed': random.choice([0.5, 1.0, 1.5, 2.0, 2.5])} for _ in range(args.num_proc)]
+            visualize_schedule(heft_schedule(annotated_dag, resources))
+            visualize_schedule(edf_schedule(annotated_dag, resources))
+            
     
     except ValueError as e:
         print(f"Error: {e}")

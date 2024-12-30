@@ -84,6 +84,20 @@ def heft_schedule(dag, resources):
         # Debug output for allocation
         print(f"Task {task} assigned to Resource {best_resource} at time {task_start_times[task][0]}-{task_start_times[task][1]}")
 
+    # Step 4: Calculate makespan
+    makespan = max(resource_availability)
+    print(f"Makespan: {makespan}")
+
+    # Step 5: Calculate resource utilization
+    utilization = {}
+    for resource_id, tasks in schedule.items():
+        active_time = sum(end - start for _, start, end in tasks)
+        utilization[resource_id] = active_time / makespan if makespan > 0 else 0.0
+
+    # Output resource utilization
+    for resource_id, util in utilization.items():
+        print(f"Resource {resource_id} utilization: {util:.2%}")
+
     return schedule
 
 
