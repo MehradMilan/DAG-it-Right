@@ -12,6 +12,7 @@ from src.utils.graph_visualizer import visualize_graph
 from src.utils.downloader import read_urls, download_dataset, download_all
 from src.benchmark.heft import heft_schedule, visualize_schedule
 from src.benchmark.edf import edf_schedule, visualize_edf
+from src.benchmark.main import plot_results, benchmark_algorithms
 
 
 
@@ -51,13 +52,40 @@ def main():
     batch_parser = subparsers.add_parser("batch-process", help="Process multiple datasets")
     batch_parser.add_argument("--type", type=str, required=True,
                                help="Type of datasets to process (e.g., social_networks, biological_networks).")
+    batch_benchmark = subparsers.add_parser("batch-benchmark", help="Benchmark multiple networks")
+
 
     args = parser.parse_args()
 
     if args.command == "benchmark":
         processors = [{'speed': random.choice([0.5, 1.0, 1.5, 2.0, 2.5])} for _ in range(args.num_proc)]
         saved_graph = load_graph(args.input)
-        visualize_schedule(heft_schedule(saved_graph, processors))
+        visualize_schedule(heft_schedule(saved_graph, processors)[0])
+        visualize_schedule(edf_schedule(annotated_dag, resources)[0])
+    
+    if args.command == "batch-benchmark":
+        # Define graph sizes and resources
+        graph_sizes = list(range(100, 1100, 100))
+        resources = [{'speed': 1.0}, {'speed': 1.5}, {'speed': 0.5}]
+
+        # Define algorithms
+        algorithms = {
+            "EDF": edf_schedule,    # Replace with your EDF function
+            "HEFT": heft_schedule   # Replace with your HEFT function
+        }
+
+        # Run benchmarks
+        for gt in ["barabasi_albert", "watts_strogatz"]:
+            results = benchmark_algorithms(gt, graph_sizes, resources, algorithms)
+
+            # Plot results
+            plot_results(gt, graph_sizes, results)
+        
+        graph_sizes = list(range(10, 110, 10))
+        results = benchmark_algorithms("erdos_renyi", graph_sizes, resources, algorithms)
+        plot_results("erdos_renyi", graph_sizes, results)
+
+    
 
     if args.command == "generate":
         try:
@@ -72,8 +100,8 @@ def main():
 
             if args.benchmark:
                 resources = [{'speed': random.choice([0.5, 1.0, 1.5, 2.0, 2.5])} for _ in range(args.num_proc)]
-                visualize_schedule(heft_schedule(annotated_dag, resources))
-                visualize_schedule(edf_schedule(annotated_dag, resources))
+                visualize_schedule(heft_schedule(annotated_dag, resources)[0])
+                visualize_schedule(edf_schedule(annotated_dag, resources)[0])
             
         except ValueError as e:
             print(f"Error: {e}")

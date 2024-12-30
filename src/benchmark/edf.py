@@ -66,7 +66,7 @@ def edf_schedule(dag, resources):
         active_time = sum(end - start for _, start, end in tasks)
         utilization[resource_id] = active_time / makespan if makespan > 0 else 0.0
 
-    return schedule
+    return schedule, makespan, utilization
 
 
 def visualize_edf(schedule):

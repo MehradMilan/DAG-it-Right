@@ -98,7 +98,7 @@ def heft_schedule(dag, resources):
     for resource_id, util in utilization.items():
         print(f"Resource {resource_id} utilization: {util:.2%}")
 
-    return schedule
+    return schedule, makespan, utilization
 
 
 def visualize_schedule(schedule):
