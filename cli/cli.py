@@ -62,7 +62,7 @@ def main():
     if args.command == "benchmark":
         processors = [{'speed': random.choice([0.5, 1.0, 1.5, 2.0, 2.5])} for _ in range(args.num_proc)]
         saved_graph = load_graph(args.input)
-        visualize_schedule(heft_schedule(saved_graph, processors)[0])
+        visualize_schedule(heft_schedule(saved_graph, args.num_proc)[0])
         visualize_schedule(edf_schedule(annotated_dag, resources)[0])
     
     if args.command == "batch-benchmark":
@@ -130,7 +130,7 @@ def main():
 
             if args.benchmark:
                 resources = [{'speed': random.choice([0.5, 1.0, 1.5, 2.0, 2.5])} for _ in range(args.num_proc)]
-                visualize_schedule(heft_schedule(annotated_dag, resources)[0])
+                visualize_schedule(heft_schedule(annotated_dag, args.num_proc)[0])
                 visualize_schedule(edf_schedule(annotated_dag, resources)[0])
 
         except ValueError as e:

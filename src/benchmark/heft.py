@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+from collections import defaultdict
+import networkx as nx
 
 def calculate_bottom_level(dag):
     bottom_level = {}
@@ -21,58 +23,71 @@ def calculate_bottom_level(dag):
 
     return bottom_level
 
+def find_available_cores(resource_availability, required_cores, start_time):
+    available_sets = []
+    for i in range(len(resource_availability) - required_cores + 1):
+        if all(resource_availability[j] <= start_time for j in range(i, i + required_cores)):
+            available_sets.append(list(range(i, i + required_cores)))
+    return available_sets
 
-def heft_schedule(dag, resources):
-    print(resources)
+def calculate_centrality(dag):
+    return nx.betweenness_centrality(dag)  # Compute centrality scores
+
+def heft_schedule(dag, num_cores):
     bottom_level = calculate_bottom_level(dag)
-    tasks = sorted(dag.nodes, key=lambda node: bottom_level[node], reverse=True)
+    centrality = calculate_centrality(dag)  # New centrality calculation
 
-    schedule = {resource: [] for resource in range(len(resources))}
+    # Prioritize tasks based on bottom level + centrality
+    tasks = sorted(dag.nodes, key=lambda node: (bottom_level[node], centrality[node]), reverse=True)
+
+    schedule = defaultdict(list)
     task_allocation = {}
-    resource_availability = [0] * len(resources)
     task_start_times = {}
+    resource_availability = [0] * num_cores
 
     for task in tasks:
+        required_cores = dag.nodes[task]['num_cores']
         best_time = float('inf')
-        best_resource = None
+        best_cores = None
 
-        for resource_id, resource in enumerate(resources):
-            est = resource_availability[resource_id]
-            for pred in dag.predecessors(task):
-                if pred in task_allocation:
-                    pred_end_time = task_start_times[pred][1]
-                    if task_allocation[pred] != resource_id:
-                        pred_end_time += dag.edges[pred, task]['weight']
-                    est = max(est, pred_end_time)
+        for start_time in set(resource_availability):
+            available_sets = find_available_cores(resource_availability, required_cores, start_time)
+            for core_set in available_sets:
+                est = start_time
+                for pred in dag.predecessors(task):
+                    if pred in task_allocation:
+                        pred_end_time = task_start_times[pred][1]
+                        if not set(task_allocation[pred]).issubset(set(core_set)):
+                            pred_end_time += dag.edges[pred, task]['weight']
+                        est = max(est, pred_end_time)
 
-            exec_time = dag.nodes[task]['weight'] / resource['speed']
-            eft = est + exec_time
+                exec_time = dag.nodes[task]['weight']
+                eft = est + exec_time
 
-            if eft < best_time:
-                best_time = eft
-                best_resource = resource_id
+                if eft < best_time:
+                    best_time = eft
+                    best_cores = core_set
 
-        task_allocation[task] = best_resource
-        task_start_times[task] = (best_time - dag.nodes[task]['weight'] / resources[best_resource]['speed'], best_time)
-        schedule[best_resource].append((task, task_start_times[task][0], task_start_times[task][1]))
+        task_allocation[task] = best_cores
+        task_start_times[task] = (best_time - dag.nodes[task]['weight'], best_time)
+        for core in best_cores:
+            resource_availability[core] = best_time
+            schedule[core].append((task, task_start_times[task][0], task_start_times[task][1]))
 
-        resource_availability[best_resource] = best_time
-
-        print(f"Task {task} assigned to Resource {best_resource} at time {task_start_times[task][0]}-{task_start_times[task][1]}")
+        print(f"Task {task} (Centrality {centrality[task]:.3f}) assigned to Cores {best_cores} at time {task_start_times[task][0]}-{task_start_times[task][1]}")
 
     makespan = max(resource_availability)
     print(f"Makespan: {makespan}")
 
     utilization = {}
-    for resource_id, tasks in schedule.items():
+    for core_id, tasks in schedule.items():
         active_time = sum(end - start for _, start, end in tasks)
-        utilization[resource_id] = active_time / makespan if makespan > 0 else 0.0
+        utilization[core_id] = active_time / makespan if makespan > 0 else 0.0
 
-    for resource_id, util in utilization.items():
-        print(f"Resource {resource_id} utilization: {util:.2%}")
+    for core_id, util in utilization.items():
+        print(f"Core {core_id} utilization: {util:.2%}")
 
     return schedule, makespan, utilization
-
 
 def visualize_schedule(schedule):
     print(schedule)
