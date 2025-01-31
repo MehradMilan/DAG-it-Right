@@ -23,21 +23,31 @@ def calculate_bottom_level(dag):
 
     return bottom_level
 
-def find_available_cores(resource_availability, required_cores, start_time):
+def find_available_cores(resource_availability, core_group, required_cores, start_time):
     available_sets = []
-    for i in range(len(resource_availability) - required_cores + 1):
-        if all(resource_availability[j] <= start_time for j in range(i, i + required_cores)):
-            available_sets.append(list(range(i, i + required_cores)))
+    for i in range(len(core_group) - required_cores + 1):
+        if all(resource_availability[core_group[j]] <= start_time for j in range(i, i + required_cores)):
+            available_sets.append(core_group[i:i + required_cores])
     return available_sets
 
 def calculate_centrality(dag):
     return nx.betweenness_centrality(dag)  # Compute centrality scores
 
-def heft_schedule(dag, num_cores):
-    bottom_level = calculate_bottom_level(dag)
-    centrality = calculate_centrality(dag)  # New centrality calculation
+def group_cores_by_speed(cores):
+    """Returns a dictionary mapping speed to available cores."""
+    core_groups = defaultdict(list)
+    for i, core in enumerate(cores):
+        core_groups[core["speed"]].append(i)
+    return core_groups
 
-    # Prioritize tasks based on bottom level + centrality
+def heft_schedule(dag, cores):
+    print(cores)
+    num_cores = len(cores)
+    bottom_level = calculate_bottom_level(dag)
+    centrality = calculate_centrality(dag)  # Compute centrality
+    core_groups = group_cores_by_speed(cores)  # Group cores by speed
+
+    # Prioritize tasks using bottom-level + centrality
     tasks = sorted(dag.nodes, key=lambda node: (bottom_level[node], centrality[node]), reverse=True)
 
     schedule = defaultdict(list)
@@ -49,35 +59,45 @@ def heft_schedule(dag, num_cores):
         required_cores = dag.nodes[task]['num_cores']
         best_time = float('inf')
         best_cores = None
+        best_speed = None
 
-        for start_time in set(resource_availability):
-            available_sets = find_available_cores(resource_availability, required_cores, start_time)
-            for core_set in available_sets:
-                est = start_time
-                for pred in dag.predecessors(task):
-                    if pred in task_allocation:
-                        pred_end_time = task_start_times[pred][1]
-                        if not set(task_allocation[pred]).issubset(set(core_set)):
-                            pred_end_time += dag.edges[pred, task]['weight']
-                        est = max(est, pred_end_time)
+        for speed, core_group in core_groups.items():
+            for start_time in set(resource_availability):
+                available_sets = find_available_cores(resource_availability, core_group, required_cores, start_time)
+                for core_set in available_sets:
+                    est = start_time
+                    avg_speed = speed  # Since all cores in the set have the same speed
 
-                exec_time = dag.nodes[task]['weight']
-                eft = est + exec_time
+                    for pred in dag.predecessors(task):
+                        if pred in task_allocation:
+                            pred_end_time = task_start_times[pred][1]
+                            if not set(task_allocation[pred]).issubset(set(core_set)):
+                                pred_end_time += dag.edges[pred, task]['weight']
+                            est = max(est, pred_end_time)
 
-                if eft < best_time:
-                    best_time = eft
-                    best_cores = core_set
+                    exec_time = dag.nodes[task]['weight'] / avg_speed  # Adjust execution time based on speed
+                    eft = est + exec_time
+
+                    if eft < best_time:
+                        best_time = eft
+                        best_cores = core_set
+                        best_speed = speed
+
+        if best_cores is None:
+            print(f"Task {task} could not be scheduled due to lack of available cores.")
+            continue
 
         task_allocation[task] = best_cores
-        task_start_times[task] = (best_time - dag.nodes[task]['weight'], best_time)
+        task_start_times[task] = (best_time - dag.nodes[task]['weight'] / best_speed, best_time)
+        
         for core in best_cores:
             resource_availability[core] = best_time
             schedule[core].append((task, task_start_times[task][0], task_start_times[task][1]))
 
-        print(f"Task {task} (Centrality {centrality[task]:.3f}) assigned to Cores {best_cores} at time {task_start_times[task][0]}-{task_start_times[task][1]}")
+        print(f"Task {task} (Centrality {centrality[task]:.3f}) assigned to Cores {best_cores} (Speed {best_speed}) at time {task_start_times[task][0]:.2f}-{task_start_times[task][1]:.2f}")
 
     makespan = max(resource_availability)
-    print(f"Makespan: {makespan}")
+    print(f"Makespan: {makespan:.2f}")
 
     utilization = {}
     for core_id, tasks in schedule.items():
@@ -85,7 +105,7 @@ def heft_schedule(dag, num_cores):
         utilization[core_id] = active_time / makespan if makespan > 0 else 0.0
 
     for core_id, util in utilization.items():
-        print(f"Core {core_id} utilization: {util:.2%}")
+        print(f"Core {core_id} (Speed {cores[core_id]['speed']}) utilization: {util:.2%}")
 
     return schedule, makespan, utilization
 
