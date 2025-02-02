@@ -2,3 +2,4 @@ networkx
 matplotlib
 heft
 requests
+PyQt5==5.15.10

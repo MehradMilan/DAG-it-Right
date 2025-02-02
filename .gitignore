@@ -5,3 +5,4 @@ data/output/graphs/generated/*.gml
 data/input/dataset/*.txt
 data/output/*
 *gml
+.vscode*

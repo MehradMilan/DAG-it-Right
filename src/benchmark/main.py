@@ -5,9 +5,15 @@ from src.generation.graph_annotator import annotate_graph
 
 import matplotlib.pyplot as plt
 
-def benchmark_algorithms_with_params(graph_type, graph_sizes, param_sets, resources, algorithms):
+
+def benchmark_algorithms_with_params(
+    graph_type, graph_sizes, param_sets, resources, algorithms
+):
     results = {
-        alg: {str(params): {'makespan': [], 'utilization': []} for params in param_sets}
+        alg: {
+            str(params): {"makespan": [], "utilization": [], "gang_percentage": []}
+            for params in param_sets
+        }
         for alg in algorithms.keys()
     }
 
@@ -18,24 +24,43 @@ def benchmark_algorithms_with_params(graph_type, graph_sizes, param_sets, resour
                 dag = convert_to_dag(dag)
                 annotated_dag = annotate_graph(dag)
 
+                gang_tasks = sum(
+                    1
+                    for n in annotated_dag.nodes
+                    if annotated_dag.nodes[n]["num_cores"] > 1
+                )
+                gang_percentage = gang_tasks / len(annotated_dag.nodes) * 100
+
                 for alg_name, alg_func in algorithms.items():
                     schedule, makespan, utilization = alg_func(annotated_dag, resources)
-                    results[alg_name][str(params)]['makespan'].append(makespan)
+                    results[alg_name][str(params)]["makespan"].append(makespan)
                     avg_utilization = sum(utilization.values()) / len(utilization)
-                    results[alg_name][str(params)]['utilization'].append(avg_utilization)
+                    results[alg_name][str(params)]["utilization"].append(
+                        avg_utilization
+                    )
+                    results[alg_name][str(params)]["gang_percentage"].append(
+                        gang_percentage
+                    )
             except ValueError as e:
-                print(f"Skipping graph with size={size} and params={params} due to: {e}")
+                print(
+                    f"Skipping graph with size={size} and params={params} due to: {e}"
+                )
 
     return results
 
+
 def plot_comparison_per_network(graph_type, graph_sizes, results, param_sets):
     fig, axes = plt.subplots(2, len(param_sets), figsize=(15, 8), sharey="row")
-    
+
     for i, params in enumerate(param_sets):
         for alg_name, metrics in results.items():
-            axes[0, i].plot(graph_sizes, metrics[str(params)]['makespan'], label=f"{alg_name}")
-            axes[1, i].plot(graph_sizes, metrics[str(params)]['utilization'], label=f"{alg_name}")
-        
+            axes[0, i].plot(
+                graph_sizes, metrics[str(params)]["makespan"], label=f"{alg_name}"
+            )
+            axes[1, i].plot(
+                graph_sizes, metrics[str(params)]["utilization"], label=f"{alg_name}"
+            )
+
         axes[0, i].set_title(f"{graph_type.upper()} (Params: {params})")
         axes[0, i].set_xlabel("Graph Size (Nodes)")
         axes[0, i].set_ylabel("Makespan")
@@ -43,33 +68,42 @@ def plot_comparison_per_network(graph_type, graph_sizes, results, param_sets):
         axes[1, i].set_xlabel("Graph Size (Nodes)")
         axes[1, i].set_ylabel("Resource Utilization")
         axes[1, i].grid()
-    
+
     axes[0, 0].legend()
     axes[1, 0].legend()
     plt.tight_layout()
     plt.show()
 
-def plot_comparison_per_algorithm(graph_sizes, results, param_sets, algorithms, network_models):
+
+def plot_comparison_per_algorithm(
+    graph_sizes, results, param_sets, algorithms, network_models
+):
     fig, axes = plt.subplots(2, len(algorithms), figsize=(15, 8), sharey="row")
 
     for i, alg_name in enumerate(algorithms):
         for graph_type in network_models:
             for params in param_sets[graph_type]:
                 param_str = str(params)
-                if graph_type in results and alg_name in results[graph_type] and param_str in results[graph_type][alg_name]:
+                if (
+                    graph_type in results
+                    and alg_name in results[graph_type]
+                    and param_str in results[graph_type][alg_name]
+                ):
                     axes[0, i].plot(
                         graph_sizes[graph_type],
-                        results[graph_type][alg_name][param_str]['makespan'],
+                        results[graph_type][alg_name][param_str]["makespan"],
                         label=f"{graph_type} (Params: {params})",
-                        linestyle='-', marker='o'
+                        linestyle="-",
+                        marker="o",
                     )
                     axes[1, i].plot(
                         graph_sizes[graph_type],
-                        results[graph_type][alg_name][param_str]['utilization'],
+                        results[graph_type][alg_name][param_str]["utilization"],
                         label=f"{graph_type} (Params: {params})",
-                        linestyle='--', marker='x'
+                        linestyle="--",
+                        marker="x",
                     )
-        
+
         axes[0, i].set_title(f"{alg_name} - Makespan")
         axes[0, i].set_xlabel("Graph Size (Nodes)")
         axes[0, i].set_ylabel("Makespan")
@@ -78,14 +112,15 @@ def plot_comparison_per_algorithm(graph_sizes, results, param_sets, algorithms, 
         axes[1, i].set_xlabel("Graph Size (Nodes)")
         axes[1, i].set_ylabel("Utilization")
         axes[1, i].grid()
-    
+
     axes[0, 0].legend()
     axes[1, 0].legend()
     plt.tight_layout()
     plt.show()
 
+
 def plot_average_per_network(graph_sizes, results, algorithms, network_models):
-    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
 
     for row, metric in enumerate(["makespan", "utilization"]):
         for col, alg_name in enumerate(algorithms):
@@ -104,7 +139,7 @@ def plot_average_per_network(graph_sizes, results, algorithms, network_models):
                     graph_sizes[graph_type],
                     list(avg_metric.values()),
                     label=f"{graph_type}",
-                    marker='o'
+                    marker="o",
                 )
 
             axes[row, col].set_title(f"{alg_name} - {metric.capitalize()}")
